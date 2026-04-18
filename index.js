@@ -1,58 +1,63 @@
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require("@whiskeysockets/baileys");
 
 async function startBot() {
+  console.log("🚀 Bot starting...");
+
   const { state, saveCreds } = await useMultiFileAuthState("./auth");
 
   const sock = makeWASocket({
     auth: state,
-    printQRInTerminal: true
+    printQRInTerminal: true,
+    browser: ["Railway Bot", "Chrome", "1.0.0"]
   });
 
-  // Save login session
+  // save session
   sock.ev.on("creds.update", saveCreds);
 
-  // Connection handler
+  // connection handler
   sock.ev.on("connection.update", (update) => {
     const { connection, lastDisconnect } = update;
 
-    if (connection === "close") {
-      const shouldReconnect =
-        lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-
-      console.log("Connection closed. Reconnecting...", shouldReconnect);
-
-      if (shouldReconnect) {
-        startBot();
-      }
-    } else if (connection === "open") {
-      console.log("✅ Bot connected successfully!");
+    if (connection === "open") {
+      console.log("✅ WhatsApp Connected!");
     }
 
-    if (update.qr) {
-      console.log("📱 Scan QR from WhatsApp");
+    if (connection === "close") {
+      const code = lastDisconnect?.error?.output?.statusCode;
+
+      console.log("❌ Disconnected. Code:", code);
+
+      if (code !== DisconnectReason.loggedOut) {
+        console.log("🔁 Reconnecting...");
+        startBot();
+      } else {
+        console.log("⚠️ Logged out. QR scan again needed.");
+      }
     }
   });
 
-  // Messages handler
+  // messages
   sock.ev.on("messages.upsert", async ({ messages }) => {
     const msg = messages[0];
     if (!msg.message) return;
+
+    const from = msg.key.remoteJid;
 
     const text =
       msg.message.conversation ||
       msg.message.extendedTextMessage?.text;
 
-    const from = msg.key.remoteJid;
-
     if (!text) return;
 
-    console.log("User said:", text);
+    console.log("📩 Message:", text);
 
-    let reply = "🤖 Default reply";
+    let reply = "🤖 I am bot";
 
     if (text.toLowerCase() === "hi") {
-      reply = "👋 Hello! Kaise ho?";
-    } else if (text.toLowerCase() === "price") {
+      reply = "👋 Hello!";
+    }
+
+    if (text.toLowerCase() === "price") {
       reply = "💰 Price is ₹100";
     }
 
