@@ -1,25 +1,63 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require("@whiskeysockets/baileys");
 
-const client = new Client({
-    authStrategy: new LocalAuth({
-        dataPath: './session'
-    })
-});
+async function startBot() {
+  const { state, saveCreds } = await useMultiFileAuthState("./auth");
 
-client.on('qr', (qr) => {
-    qrcode.generate(qr, { small: true });
-    console.log('📱 Scan this QR code with WhatsApp:');
-});
+  const sock = makeWASocket({
+    auth: state,
+    printQRInTerminal: true
+  });
 
-client.on('ready', () => {
-    console.log('✅ Bot is ready!');
-});
+  // Save login session
+  sock.ev.on("creds.update", saveCreds);
 
-client.on('message', async (message) => {
-    if (message.body.toLowerCase() === '!ping') {
-        await message.reply('🏓 Pong!');
+  // Connection handler
+  sock.ev.on("connection.update", (update) => {
+    const { connection, lastDisconnect } = update;
+
+    if (connection === "close") {
+      const shouldReconnect =
+        lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+
+      console.log("Connection closed. Reconnecting...", shouldReconnect);
+
+      if (shouldReconnect) {
+        startBot();
+      }
+    } else if (connection === "open") {
+      console.log("✅ Bot connected successfully!");
     }
-});
 
-client.initialize();
+    if (update.qr) {
+      console.log("📱 Scan QR from WhatsApp");
+    }
+  });
+
+  // Messages handler
+  sock.ev.on("messages.upsert", async ({ messages }) => {
+    const msg = messages[0];
+    if (!msg.message) return;
+
+    const text =
+      msg.message.conversation ||
+      msg.message.extendedTextMessage?.text;
+
+    const from = msg.key.remoteJid;
+
+    if (!text) return;
+
+    console.log("User said:", text);
+
+    let reply = "🤖 Default reply";
+
+    if (text.toLowerCase() === "hi") {
+      reply = "👋 Hello! Kaise ho?";
+    } else if (text.toLowerCase() === "price") {
+      reply = "💰 Price is ₹100";
+    }
+
+    await sock.sendMessage(from, { text: reply });
+  });
+}
+
+startBot();
