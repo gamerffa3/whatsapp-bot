@@ -1,12 +1,11 @@
 {
   "name": "whatsapp-bot",
   "version": "1.0.0",
-  "description": "Simple WhatsApp bot using Baileys",
+  "description": "Simple WhatsApp Bot using Baileys",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node index.js"
+    "start": "node index.js"
   },
   "engines": {
     "node": ">=18"
